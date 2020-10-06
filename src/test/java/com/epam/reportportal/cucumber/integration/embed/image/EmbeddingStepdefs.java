@@ -17,8 +17,8 @@
 package com.epam.reportportal.cucumber.integration.embed.image;
 
 import com.epam.reportportal.util.test.CommonUtils;
-import io.cucumber.core.api.Scenario;
 import io.cucumber.java.After;
+import io.cucumber.java.Scenario;
 import io.cucumber.java.en.Given;
 import org.apache.commons.io.IOUtils;
 

@@ -16,18 +16,21 @@
 
 package com.epam.reportportal.cucumber.integration.callback;
 
+import com.epam.reportportal.cucumber.AbstractReporter;
 import com.epam.reportportal.cucumber.StepReporter;
 import com.epam.reportportal.service.ReportPortal;
+import org.jetbrains.annotations.NotNull;
 
 public class TestStepReporter extends StepReporter {
 	public static final ThreadLocal<ReportPortal> RP = new ThreadLocal<>();
 
+	@NotNull
 	@Override
 	protected ReportPortal buildReportPortal() {
 		return RP.get();
 	}
 
 	public static void addReportPortal(ReportPortal rp) {
-		setReportPortal(rp);
+		AbstractReporter.Companion.setReportPortal(rp);
 	}
 }

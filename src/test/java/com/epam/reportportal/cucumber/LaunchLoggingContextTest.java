@@ -3,6 +3,7 @@ package com.epam.reportportal.cucumber;
 import com.epam.reportportal.listeners.ListenerParameters;
 import com.epam.reportportal.service.Launch;
 import com.epam.reportportal.service.ReportPortal;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
@@ -24,7 +25,8 @@ public class LaunchLoggingContextTest {
 
 	@Test
 	public void verifyLaunchLoggingContextInit() {
-		StepReporter stepReporter = new StepReporter() {
+		com.epam.reportportal.cucumber.StepReporter stepReporter = new StepReporter() {
+			@NotNull
 			@Override
 			protected ReportPortal buildReportPortal() {
 				return reportPortal;
@@ -40,7 +42,8 @@ public class LaunchLoggingContextTest {
 
 	@Test
 	public void verifyLaunchLoggingContextInitScenarioReporter() {
-		ScenarioReporter scenarioReporter = new ScenarioReporter() {
+		com.epam.reportportal.cucumber.ScenarioReporter scenarioReporter = new ScenarioReporter() {
+			@NotNull
 			@Override
 			protected ReportPortal buildReportPortal() {
 				return reportPortal;

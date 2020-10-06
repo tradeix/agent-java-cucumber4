@@ -22,8 +22,8 @@ import com.epam.reportportal.service.tree.ItemTreeReporter;
 import com.epam.reportportal.service.tree.TestItemTree;
 import com.epam.reportportal.util.test.CommonUtils;
 import com.epam.ta.reportportal.ws.model.FinishTestItemRQ;
-import io.cucumber.core.api.Scenario;
 import io.cucumber.java.After;
+import io.cucumber.java.Scenario;
 import io.cucumber.java.en.Given;
 
 import java.util.Calendar;
@@ -38,7 +38,7 @@ public class CallbackReportingSteps {
 
 	@After
 	public void after(Scenario scenario) {
-		ItemTreeUtils.retrieveLeaf(scenario.getUri(), scenario.getLine(), STEP_TEXT, AbstractReporter.ITEM_TREE).ifPresent(itemLeaf -> {
+		ItemTreeUtils.INSTANCE.retrieveLeaf(scenario.getUri(), scenario.getLine(), STEP_TEXT, AbstractReporter.Companion.getITEM_TREE()).ifPresent(itemLeaf -> {
 			if (scenario.getName().contains("failure")) {
 				sendFinishRequest(itemLeaf, "FAILED", "secondTest");
 				attachLog(itemLeaf);
@@ -53,20 +53,20 @@ public class CallbackReportingSteps {
 		finishTestItemRQ.setDescription(description);
 		finishTestItemRQ.setStatus(status);
 		finishTestItemRQ.setEndTime(Calendar.getInstance().getTime());
-		ItemTreeReporter.finishItem(AbstractReporter.getReportPortal().getClient(),
+		ItemTreeReporter.finishItem(AbstractReporter.Companion.getReportPortal().getClient(),
 				finishTestItemRQ,
-				AbstractReporter.ITEM_TREE.getLaunchId(),
+				AbstractReporter.Companion.getITEM_TREE().getLaunchId(),
 				testResultLeaf
 		)
 				.blockingGet();
 	}
 
 	private void attachLog(TestItemTree.TestItemLeaf testItemLeaf) {
-		ItemTreeReporter.sendLog(AbstractReporter.getReportPortal().getClient(),
+		ItemTreeReporter.sendLog(AbstractReporter.Companion.getReportPortal().getClient(),
 				"ERROR",
 				"Error message",
 				Calendar.getInstance().getTime(),
-				AbstractReporter.ITEM_TREE.getLaunchId(),
+				AbstractReporter.Companion.getITEM_TREE().getLaunchId(),
 				testItemLeaf
 		);
 	}

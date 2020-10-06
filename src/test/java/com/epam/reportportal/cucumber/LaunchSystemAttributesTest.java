@@ -6,6 +6,7 @@ import com.epam.reportportal.service.ReportPortalClient;
 import com.epam.ta.reportportal.ws.model.attribute.ItemAttributesRQ;
 import com.epam.ta.reportportal.ws.model.launch.StartLaunchRQ;
 import io.reactivex.Maybe;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,7 +34,7 @@ public class LaunchSystemAttributesTest {
 
 	private static final String SKIPPED_ISSUE_KEY = "skippedIssue";
 
-	private StepReporter stepReporter;
+	private com.epam.reportportal.cucumber.StepReporter stepReporter;
 
 	@Mock
 	private ReportPortalClient reportPortalClient;
@@ -55,6 +56,7 @@ public class LaunchSystemAttributesTest {
 		when(listenerParameters.getIoPoolSize()).thenReturn(10);
 		when(listenerParameters.getBatchLogsSize()).thenReturn(5);
 		stepReporter = new StepReporter() {
+			@NotNull
 			@Override
 			protected ReportPortal buildReportPortal() {
 				return ReportPortal.create(reportPortalClient, listenerParameters);

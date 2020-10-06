@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 apply plugin: 'java-library'
+apply plugin: 'kotlin'
 
 project.ext.releaseMode = project.hasProperty('releaseMode')
 
-def branch = releaseMode ? '5.0.0' : 'develop'
-apply from: "https://raw.githubusercontent.com/reportportal/gradle-scripts/$branch/build-quality.gradle"
-apply from: "https://raw.githubusercontent.com/reportportal/gradle-scripts/$branch/release-commons.gradle"
 
 sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
@@ -30,29 +28,14 @@ repositories {
     maven { url "https://jitpack.io" }
 }
 
-project.ext.githubUserName = project.hasProperty('githubUserName') ? githubUserName : ""
-project.ext.githubToken = project.hasProperty('githubToken') ? githubToken : ""
-
-publishing {
-    repositories {
-        maven {
-            name = "Cucumber4 GitHub Packages"
-            url = uri("https://maven.pkg.github.com/reportportal/agent-java-cucumber4")
-            credentials {
-                username = githubUserName
-                password = githubToken
-            }
-        }
-    }
-}
-
 
 dependencies {
     api 'com.epam.reportportal:client-java:5.0.11'
     api 'com.epam.reportportal:commons-model:5.0.0'
-    api 'com.google.code.findbugs:jsr305:3.0.2'
 
-    api 'io.cucumber:cucumber-java:4.8.1'
+    api 'io.cucumber:cucumber-java:5.6.0'
+    testImplementation 'io.cucumber:cucumber-testng:5.6.0'
+
 
     testImplementation('com.github.reportportal:agent-java-test-utils:ddcf50ee20')
 
@@ -60,7 +43,6 @@ dependencies {
     testImplementation 'org.hamcrest:hamcrest-core:2.2'
     testImplementation 'org.mockito:mockito-core:3.3.3'
     testImplementation 'ch.qos.logback:logback-classic:1.2.3'
-    testImplementation 'io.cucumber:cucumber-testng:4.8.1'
     testImplementation 'com.epam.reportportal:logger-java-logback:5.0.3'
 
     testImplementation ('org.junit.platform:junit-platform-runner:1.6.2') {
@@ -72,6 +54,7 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.6.2'
     testImplementation 'org.mockito:mockito-junit-jupiter:3.3.3'
     testImplementation 'org.apache.commons:commons-io:1.3.2'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 }
 
 test {
@@ -94,6 +77,23 @@ processResources {
     }
 }
 
-def releaseDependencies = [bintrayUpload, publish]
-releaseDependencies.addAll(afterReleaseBuild.getDependsOn())
-afterReleaseBuild.setDependsOn(releaseDependencies)
+
+buildscript {
+    ext.kotlin_version = '1.4.10'
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+compileKotlin {
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
+compileTestKotlin {
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
