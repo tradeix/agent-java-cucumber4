@@ -207,6 +207,10 @@ abstract class AbstractReporter : ConcurrentEventListener {
      * @return Request to ReportPortal
      */
     protected open fun buildStartStepRequest(testStep: TestStep, stepPrefix: String, keyword: String): StartTestItemRQ {
+        val method = Utils.getFieldValue<Any>(Utils.DEFINITION_MATCH_FIELD_NAME, testStep)?.let {
+            Utils.retrieveMethod(it)
+        }
+
         return StartTestItemRQ().apply {
             name = Utils.buildName(stepPrefix, keyword, Utils.getStepName(testStep))
             description = Utils.buildMultilineArgument(testStep)
@@ -214,11 +218,15 @@ abstract class AbstractReporter : ConcurrentEventListener {
             type = RP_STEP_TYPE
             val codeRef: String? = Utils.getCodeRef(testStep)
             if (testStep is PickleStepTestStep) {
-                parameters = Utils.getParameters(codeRef, testStep.definitionArgument)
+                testStep.definitionArgument.let { arguments ->
+                    parameters = Utils.getParameters(codeRef, arguments)
+                    testCaseId = (method?.let {
+                        Utils.getTestCaseId(method, codeRef, arguments)
+                    } ?: Utils.getTestCaseId(codeRef, arguments))?.id
+                }
+                this.codeRef = codeRef
+                attributes = method?.let { Utils.getAttributes(it) }
             }
-            this.codeRef = codeRef
-//            testCaseId = Utils.getTestCaseId(testStep, codeRef)?.id
-//            attributes = Utils.getAttributes(testStep)
         }
     }
 
@@ -338,7 +346,7 @@ abstract class AbstractReporter : ConcurrentEventListener {
         message?.let {
             Utils.sendLog(message, level)
         }
-        result.error.message?.let {
+        result.error?.message?.let {
             Utils.sendLog(it, level)
         }
 
@@ -455,7 +463,7 @@ abstract class AbstractReporter : ConcurrentEventListener {
             throw IllegalStateException("Scenario URI does not match Feature URI.")
         }
         val newScenarioContext = featureContext.getScenarioContext(testCase)
-        val scenarioName: String = Utils.buildName(newScenarioContext.scenario.keyword, COLON_INFIX, newScenarioContext.scenario.keyword)
+        val scenarioName: String = Utils.buildName(newScenarioContext.scenario.keyword, COLON_INFIX, newScenarioContext.scenario.name)
         val scenarioContext: ScenarioContext = currentScenarioContextMap.computeIfAbsent(newScenarioContext.line to featureContext.uri) {
             currentScenarioContext.set(newScenarioContext)
             newScenarioContext

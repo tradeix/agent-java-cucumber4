@@ -15,16 +15,20 @@
  */
 package com.epam.reportportal.cucumber
 
+import com.epam.reportportal.annotations.TestCaseId
+import com.epam.reportportal.annotations.attribute.Attributes
 import com.epam.reportportal.listeners.ItemStatus
 import com.epam.reportportal.service.Launch
 import com.epam.reportportal.service.ReportPortal
 import com.epam.reportportal.service.item.TestCaseIdEntry
+import com.epam.reportportal.utils.AttributeParser
 import com.epam.reportportal.utils.ParameterUtils
 import com.epam.reportportal.utils.TestCaseIdUtils
 import com.epam.ta.reportportal.ws.model.FinishTestItemRQ
 import com.epam.ta.reportportal.ws.model.ParameterResource
 import com.epam.ta.reportportal.ws.model.StartTestItemRQ
 import com.epam.ta.reportportal.ws.model.attribute.ItemAttributesRQ
+import io.cucumber.core.backend.StepDefinition
 import io.cucumber.core.internal.gherkin.ast.Tag
 import io.cucumber.core.internal.gherkin.pickles.PickleString
 import io.cucumber.core.internal.gherkin.pickles.PickleTable
@@ -33,6 +37,8 @@ import io.reactivex.Maybe
 import org.slf4j.LoggerFactory
 import rp.com.google.common.collect.ImmutableMap
 import java.lang.reflect.Field
+import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Method
 import java.net.URI
 import java.util.*
 
@@ -55,7 +61,7 @@ object Utils {
     private const val HOOK_ = "Hook: "
     private const val NEW_LINE = "\r\n"
     private const val FILE_PREFIX = "file:"
-    private const val DEFINITION_MATCH_FIELD_NAME = "definitionMatch"
+    const val DEFINITION_MATCH_FIELD_NAME = "definitionMatch"
     private const val STEP_DEFINITION_FIELD_NAME = "stepDefinition"
     private const val GET_LOCATION_METHOD_NAME = "getLocation"
     private const val METHOD_OPENING_BRACKET = "("
@@ -155,9 +161,11 @@ object Utils {
      * @param status - Cucumber status
      * @return RP test item status and null if status is null
      */
-    fun mapItemStatus(status: Status?): String {
-        return STATUS_MAPPING[status]?.name ?: ItemStatus.SKIPPED.name.also {
-            LOGGER.error("Unable to find direct mapping between Cucumber and ReportPortal for TestItem with status: $status")
+    fun mapItemStatus(status: Status?): String? {
+        return status?.let {
+            STATUS_MAPPING[status]?.name ?: ItemStatus.SKIPPED.name.also {
+                LOGGER.error("Unable to find direct mapping between Cucumber and ReportPortal for TestItem with status: $status")
+            }
         }
     }
 
@@ -205,54 +213,38 @@ object Utils {
         return if (step is HookTestStep) HOOK_ + step.hookType.toString() else (step as PickleStepTestStep).step.text
     }
 
-//    fun getAttributes(testStep: TestStep): Set<ItemAttributesRQ>? {
-//        val definitionMatchField = getDefinitionMatchField(testStep)
-//        if (definitionMatchField != null) {
-//            try {
-//                val method = retrieveMethod(definitionMatchField, testStep)
-//                val attributesAnnotation = method.getAnnotation(Attributes::class.java)
-//                if (attributesAnnotation != null) {
-//                    return AttributeParser.retrieveAttributes(attributesAnnotation)
-//                }
-//            } catch (e: NoSuchFieldException) {
-//                return null
-//            } catch (e: IllegalAccessException) {
-//                return null
-//            }
-//        }
-//        return null
-//    }
+    fun getAttributes(method: Method): Set<ItemAttributesRQ>? {
+        return method.getAnnotation(Attributes::class.java)?.let { attributes ->
+            return AttributeParser.retrieveAttributes(attributes)
+        }
+    }
 
     fun getCodeRef(testStep: TestStep): String? {
-        return ""
-//        val definitionMatchField = getDefinitionMatchField(testStep)
-//        return if (definitionMatchField != null) {
-//            try {
-//                val stepDefinitionMatch: StepDefinitionMatch = definitionMatchField[testStep] as StepDefinitionMatch
-//                val stepDefinitionField: Field = stepDefinitionMatch.getClass().getDeclaredField(STEP_DEFINITION_FIELD_NAME)
-//                stepDefinitionField.isAccessible = true
-//                val javaStepDefinition = stepDefinitionField[stepDefinitionMatch]
-//                val getLocationMethod = javaStepDefinition.javaClass.getDeclaredMethod(GET_LOCATION_METHOD_NAME, Boolean::class.javaPrimitiveType)
-//                getLocationMethod.isAccessible = true
-//                val fullCodeRef = getLocationMethod.invoke(javaStepDefinition, true).toString()
-//                fullCodeRef.substring(0, fullCodeRef.indexOf(METHOD_OPENING_BRACKET))
-//            } catch (e: NoSuchFieldException) {
-//                null
-//            } catch (e: NoSuchMethodException) {
-//                null
-//            } catch (e: InvocationTargetException) {
-//                null
-//            } catch (e: IllegalAccessException) {
-//                null
-//            }
-//        } else {
-//            null
-//        }
+        return getFieldValue<Any>(DEFINITION_MATCH_FIELD_NAME, testStep)?.let { definitionMatch ->
+            getFieldValue<StepDefinition>(STEP_DEFINITION_FIELD_NAME, definitionMatch)
+        }?.let { stepDefinition ->
+            try {
+                getMethod(stepDefinition, GET_LOCATION_METHOD_NAME)?.let {
+                    it.invoke(stepDefinition)?.toString()?.let { location ->
+                        location.substring(0, location.indexOf(METHOD_OPENING_BRACKET))
+                    }
+                }
+            } catch (e: NoSuchFieldException) {
+                null
+            } catch (e: NoSuchMethodException) {
+                null
+            } catch (e: InvocationTargetException) {
+                null
+            } catch (e: IllegalAccessException) {
+                null
+            }
+        }
     }
 
 
     fun getCodeRef(uri: URI, line: Int): String {
-        return uri.toString()
+        return "${uri.path.let { it.substring(it.indexOf("src")) }}:$line"
+//        return uri.toString()
 //        val myUri = if (uri.startsWith(FILE_PREFIX)) uri.substring(FILE_PREFIX.length) else uri
 //        return "$myUri:$line"
     }
@@ -262,53 +254,101 @@ object Utils {
         return ParameterUtils.getParameters(codeRef, params)
     }
 
-//    private fun retrieveMethod(definitionMatchField: Field, testStep: TestStep): Method {
-//        val stepDefinitionMatch: StepDefinitionMatch = definitionMatchField[testStep] as StepDefinitionMatch
-//        val stepDefinitionField: Field = stepDefinitionMatch.getClass().getDeclaredField(STEP_DEFINITION_FIELD_NAME)
-//        stepDefinitionField.isAccessible = true
-//        val javaStepDefinition = stepDefinitionField[stepDefinitionMatch]
-//        val methodField = javaStepDefinition.javaClass.getDeclaredField(METHOD_FIELD_NAME)
-//        methodField.isAccessible = true
-//        return methodField[javaStepDefinition] as Method
-//    }
+    fun retrieveMethod(definitionMatchField: Any): Method? {
+        return try {
+            getFieldValue<Any>(STEP_DEFINITION_FIELD_NAME, definitionMatchField)?.let { stepDefinition ->
+                getFieldValue<Method>(METHOD_FIELD_NAME, stepDefinition)
+            }
+        } catch (ignore: NoSuchFieldException) {
+            null
+        } catch (ignore: IllegalAccessException) {
+            null
+        }
+    }
 
-//    fun getTestCaseId(testStep: TestStep, codeRef: String?): TestCaseIdEntry? {
-//        val definitionMatchField = getDefinitionMatchField(testStep)
-//        val arguments: List<Argument> = (testStep as PickleStepTestStep).definitionArgument
-//        if (definitionMatchField != null) {
-//            try {
-//                val method = retrieveMethod(definitionMatchField, testStep)
-//                return TestCaseIdUtils.getTestCaseId(method.getAnnotation(TestCaseId::class.java),
-//                        method,
-//                        codeRef,
-//                        arguments.map { it.value }
-//                )
-//            } catch (ignore: NoSuchFieldException) {
-//            } catch (ignore: IllegalAccessException) {
-//            }
-//        }
-//        return getTestCaseId(codeRef, arguments)
-//    }
+    fun getTestCaseId(method: Method, codeRef: String?, arguments: List<Argument>): TestCaseIdEntry? {
+        return try {
+            TestCaseIdUtils.getTestCaseId(method.getAnnotation(TestCaseId::class.java),
+                    method,
+                    codeRef,
+                    arguments.map { it.value }
+            )
+        } catch (ignore: NoSuchFieldException) {
+            null
+        } catch (ignore: IllegalAccessException) {
+            null
+        }
+    }
 
-    private fun getTestCaseId(codeRef: String?, arguments: List<Argument>?): TestCaseIdEntry? {
+    fun getTestCaseId(codeRef: String?, arguments: List<Argument>?): TestCaseIdEntry? {
         return TestCaseIdUtils.getTestCaseId(codeRef, arguments?.map { it.value })
     }
 
-    private fun getDefinitionMatchField(testStep: TestStep): Field? {
-        var clazz: Class<*>? = testStep::class.java
+    inline fun <reified T> getFieldValue(fieldName: String, obj: Any): T? {
+        var clazz: Class<*>? = obj::class.java
+        var field: Field? = null
         return try {
-            clazz!!.getField(DEFINITION_MATCH_FIELD_NAME)
+            clazz!!.getField(fieldName).apply {
+                isAccessible = true
+            }
         } catch (e: NoSuchFieldException) {
             do {
                 try {
-                    val definitionMatchField = clazz!!.getDeclaredField(DEFINITION_MATCH_FIELD_NAME)
-                    definitionMatchField.isAccessible = true
-                    return definitionMatchField
+                    field = clazz!!.getDeclaredField(fieldName).apply {
+                        isAccessible = true
+                    }
+                    break
                 } catch (ignore: NoSuchFieldException) {
                 }
                 clazz = clazz!!.superclass
             } while (clazz != null)
-            null
+            field
+        }?.let {
+            it[obj] as? T
+        }
+    }
+
+    fun getMethod(obj: Any, methodName: String, vararg methodTypes: Class<*>): Method? {
+        var clazz: Class<*>? = obj::class.java
+        var method: Method? = null
+        return try {
+            clazz!!.getMethod(methodName, *methodTypes).apply {
+                isAccessible = true
+            }
+        } catch (e: NoSuchFieldException) {
+            do {
+                try {
+                    method = clazz!!.getDeclaredMethod(methodName, *methodTypes).apply {
+                        isAccessible = true
+                    }
+                    break
+                } catch (ignore: NoSuchFieldException) {
+                }
+                clazz = clazz!!.superclass
+            } while (clazz != null)
+            method
+        }
+    }
+
+    private inline fun <reified T> getMethodInvokeValue(fieldName: String, obj: Any): T? {
+        var clazz: Class<*>? = obj::class.java
+        var field: Field? = null
+        return try {
+            clazz!!.getField(fieldName)
+        } catch (e: NoSuchFieldException) {
+            do {
+                try {
+                    field = clazz!!.getDeclaredField(fieldName).apply {
+                        isAccessible = true
+                    }
+                    break
+                } catch (ignore: NoSuchFieldException) {
+                }
+                clazz = clazz!!.superclass
+            } while (clazz != null)
+            field
+        }?.let {
+            it[obj] as? T
         }
     }
 

@@ -71,7 +71,7 @@ class FeatureContext(testCase: TestCase) {
     }
 
     val background: Background?
-        get() = currentFeature.children.first() as Background
+        get() = currentFeature.children.first() as? Background
 
 
     fun getScenario(testCase: TestCase): ScenarioDefinition {
@@ -122,7 +122,8 @@ class ScenarioContext {
     lateinit var featureUri: URI
     lateinit var currentText: String
 
-    val line: Int = if (isScenarioOutline(scenario)) testCase.line else scenario.location.line
+    val line: Int
+        get() = if (isScenarioOutline(scenario)) testCase.line else scenario.location.line
     val stepPrefix: String = if (hasBackground() && withBackground()) background?.keyword?.toUpperCase().toString() + AbstractReporter.COLON_INFIX else ""
 
 
@@ -146,7 +147,7 @@ class ScenarioContext {
     fun processScenarioOutline(scenarioOutline: ScenarioDefinition) {
         if (isScenarioOutline(scenarioOutline)) {
             scenarioOutlineMap.computeIfAbsent(scenarioOutline
-            ) { k: ScenarioDefinition? ->
+            ) {
                 (scenarioOutline as ScenarioOutline).examples
                         .stream()
                         .flatMap { e -> e.tableBody.stream() }
@@ -200,9 +201,5 @@ class ScenarioContext {
 
     fun hasBackground(): Boolean {
         return hasBackground && background != null
-    }
-
-    init {
-        throw AssertionError("No instances should exist for the class!")
     }
 }
